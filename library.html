@@ -1,0 +1,373 @@
+<?php
+// index.php
+// Questa web app sfrutta i dataset open source di Open Library per mostrare gratuitamente opere suddivise per categorie.
+// Non sono necessarie registrazioni.
+?>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Open Library - Libri Gratuiti per Categoria</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Bootstrap 5 CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  
+  <style>
+    /* Temi Day / Night */
+    body.day {
+      background-color: #f8f9fa;
+      color: #212529;
+    }
+    body.night {
+      background-color: #212529;
+      color: #f8f9fa;
+    }
+    
+    /* Header e Footer */
+    header, footer {
+      background-color: #333;
+      color: #fff;
+      padding: 15px;
+      text-align: center;
+    }
+    
+    /* Contenitore principale */
+    .container-main {
+      max-width: 960px;
+      margin: 20px auto;
+      padding: 15px;
+    }
+    
+    /* Form di ricerca/categorie */
+    #subjectForm {
+      margin-bottom: 30px;
+    }
+    
+    /* Card dei libri */
+    .result-item {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 0.25rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .result-item h3 {
+      margin-bottom: 10px;
+    }
+    .result-item p {
+      font-size: 0.95rem;
+    }
+    .result-item img {
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 15px;
+      border-radius: 0.25rem;
+    }
+    
+    /* Spinner */
+    .spinner {
+      margin: 50px auto;
+      display: block;
+    }
+    
+    /* Messaggio di errore */
+    #errorMessage {
+      color: #d9534f;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    
+    /* Modal: scroll interno se il contenuto è lungo */
+    .modal-body {
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    
+    /* Footer */
+    footer {
+      margin-top: 40px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body class="day">
+  <!-- HEADER -->
+  <header>
+    <div class="d-flex justify-content-between align-items-center">
+      <h1 class="m-0">Open Library Libri Gratuiti</h1>
+      <!-- Toggle tema -->
+      <div>
+        <label for="themeToggle" class="form-check-label me-2">Tema</label>
+        <input type="checkbox" id="themeToggle" class="form-check-input">
+        <span id="themeText">Day</span>
+      </div>
+    </div>
+  </header>
+  
+  <!-- CONTENITORE PRINCIPALE -->
+  <div class="container-main">
+    <!-- Form per selezionare la categoria -->
+    <form id="subjectForm" class="mb-4">
+      <div class="row g-3 align-items-center">
+        <div class="col-md-6">
+          <select id="subjectSelect" class="form-select" required>
+            <option value="">-- Seleziona una categoria --</option>
+            <option value="classics">Classici della Letteratura</option>
+            <option value="science_fiction">Fantascienza</option>
+            <option value="fantasy">Fantasy</option>
+            <option value="mystery_and_detective_stories">Mistero e Giallo</option>
+            <option value="history">Storia</option>
+            <option value="biography">Biografie</option>
+            <option value="poetry">Poesia</option>
+            <option value="children">Libri per Bambini</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary w-100">Vedi Libri</button>
+        </div>
+        <!-- Checkbox per mostrare copertine -->
+        <div class="col-md-3 d-flex align-items-center">
+          <div class="form-check">
+            <input type="checkbox" id="showCovers" class="form-check-input" checked>
+            <label for="showCovers" class="form-check-label">Mostra Copertine</label>
+          </div>
+        </div>
+      </div>
+    </form>
+    
+    <!-- Messaggio di errore -->
+    <p id="errorMessage"></p>
+    
+    <!-- Container per visualizzare i libri -->
+    <div id="resultContainer"></div>
+  </div>
+  
+  <!-- FOOTER -->
+  <footer>
+    <p>Realizzato da Bocaletto Luca © <?php echo date("Y"); ?></p>
+  </footer>
+  
+  <!-- MODALE per visualizzare i dettagli dell'opera -->
+  <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="detailModalLabel"></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+        </div>
+        <div class="modal-body" id="modalBodyContent">
+          <!-- Il contenuto completo verrà caricato qui -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Bootstrap Bundle JS (include Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    /* =======================================
+       Gestione del tema Day/Night
+    ======================================= */
+    const themeToggle = document.getElementById("themeToggle");
+    const themeText = document.getElementById("themeText");
+    themeToggle.addEventListener("change", () => {
+      if (themeToggle.checked) {
+        document.body.classList.remove("day");
+        document.body.classList.add("night");
+        themeText.textContent = "Night";
+      } else {
+        document.body.classList.remove("night");
+        document.body.classList.add("day");
+        themeText.textContent = "Day";
+      }
+    });
+    
+    /* ===============================================
+       Gestione del form di selezione della categoria
+    =============================================== */
+    const subjectForm = document.getElementById("subjectForm");
+    const resultContainer = document.getElementById("resultContainer");
+    const errorMessage = document.getElementById("errorMessage");
+    
+    subjectForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      resultContainer.innerHTML = "";
+      errorMessage.textContent = "";
+      const subject = document.getElementById("subjectSelect").value;
+      if(subject === "") return;
+      performSubjectSearch(subject);
+    });
+    
+    /* =====================================================
+       Funzione per eseguire la ricerca per categoria
+       Utilizza l’endpoint: https://openlibrary.org/subjects/{subject}.json
+    ===================================================== */
+    async function performSubjectSearch(subject) {
+      resultContainer.innerHTML = '<div class="text-center"><div class="spinner-border spinner" role="status"><span class="visually-hidden">Caricamento...</span></div></div>';
+      const searchUrl = `https://openlibrary.org/subjects/${subject}.json?limit=20`;
+      try {
+        const response = await fetch(searchUrl);
+        if (!response.ok) {
+          throw new Error("Errore nella risposta di rete");
+        }
+        const data = await response.json();
+        displaySubjectResults(data.works);
+      } catch (error) {
+        console.error(error);
+        resultContainer.innerHTML = "";
+        errorMessage.textContent = "Errore: " + error.message;
+      }
+    }
+    
+    /* ====================================
+       Funzione per visualizzare i risultati
+    ==================================== */
+    function displaySubjectResults(works) {
+      resultContainer.innerHTML = "";
+      if(!works || works.length === 0) {
+        resultContainer.innerHTML = "<p class='text-center'>Nessun libro trovato.</p>";
+        return;
+      }
+      
+      works.forEach(work => {
+        const title = work.title || "Titolo non disponibile";
+        const authors = work.authors ? work.authors.map(author => author.name).join(", ") : "Autore non disponibile";
+        const coverId = work.cover_id;
+        const coverUrl = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : "";
+        const workKey = work.key; // esempio: "/works/OL82563W"
+        const hasFulltext = work.has_fulltext;  // Boolean (se presente nei dati)
+        const editionKey = (work.edition_key && work.edition_key.length > 0) ? work.edition_key[0] : "";
+        
+        let cardHTML = `<div class="result-item">
+                          <h3>${escapeHtml(title)}</h3>
+                          <p><strong>Autore/i:</strong> ${escapeHtml(authors)}</p>`;
+        if(coverUrl !== "" && document.getElementById("showCovers").checked) {
+          cardHTML += `<img src="${coverUrl}" alt="${escapeHtml(title)}" class="img-fluid mb-3">`;
+        }
+        // Pulsante per "Leggi di più" con dettagli dell'opera
+        cardHTML += `<button class="btn btn-sm btn-secondary me-2" onclick="loadFullDetails('${encodeURIComponent(workKey)}', '${escapeHtml(title)}')">Leggi di più</button>`;
+        // Se il libro ha fulltext, offri il pulsante "Leggi libro" (tale opzione appare quando esiste un edition_key)
+        if(hasFulltext && editionKey !== "") {
+          cardHTML += `<button class="btn btn-sm btn-primary" onclick="loadFullBook('${editionKey}', '${escapeHtml(title)}')">Leggi libro</button>`;
+        }
+        cardHTML += `</div>`;
+        resultContainer.innerHTML += cardHTML;
+      });
+    }
+    
+    /* =====================================================
+       Funzione per caricare i dettagli dell'opera (dettagli dal work)
+    ===================================================== */
+    async function loadFullDetails(workKeyEncoded, title) {
+      const workKey = decodeURIComponent(workKeyEncoded);
+      openDetailModal(title, `<p class="text-center">Caricamento dettagli...</p>`);
+      const detailUrl = `https://openlibrary.org${workKey}.json`;
+      try {
+        const response = await fetch(detailUrl);
+        if (!response.ok) {
+          throw new Error("Errore nel recupero dei dettagli");
+        }
+        const data = await response.json();
+        displayDetailData(data, title);
+      } catch (error) {
+        console.error(error);
+        openDetailModal(title, `<p class="text-center text-danger">Errore: ${error.message}</p>`);
+      }
+    }
+    
+    /* ====================================================
+       Funzione per visualizzare i dettagli dell'opera
+    ==================================================== */
+    function displayDetailData(data, fallbackTitle) {
+      let description = "";
+      if(data.description) {
+        if(typeof data.description === "object" && data.description.value) {
+          description = data.description.value;
+        } else if(typeof data.description === "string") {
+          description = data.description;
+        }
+      } else {
+        description = "Nessuna descrizione disponibile.";
+      }
+      
+      let subjects = "";
+      if(data.subjects && Array.isArray(data.subjects)) {
+        subjects = data.subjects.join(", ");
+      } else {
+        subjects = "Soggetti non disponibili.";
+      }
+      
+      const detailHTML = `<h2>${escapeHtml(data.title) || escapeHtml(fallbackTitle)}</h2>
+                          <p><strong>Descrizione:</strong><br>${escapeHtml(description)}</p>
+                          <p><strong>Soggetti:</strong> ${escapeHtml(subjects)}</p>`;
+      openDetailModal(data.title || fallbackTitle, detailHTML);
+    }
+    
+    /* ===============================================================
+       Funzione per caricare il libro in lettura completa (se disponibile)
+       Si usa il primo edition_key per costruire il link:
+       https://openlibrary.org/books/{edition_key}/read
+    =============================================================== */
+    function loadFullBook(editionKey, title) {
+      const readUrl = `https://openlibrary.org/books/${editionKey}/read`;
+      const iframeHTML = `<iframe src="${readUrl}" style="width:100%; height:80vh; border:none;"></iframe>`;
+      openDetailModal(title, iframeHTML);
+    }
+    
+    /* =============================================================
+       Funzione per aprire la modale e visualizzare il contenuto passato
+    ============================================================= */
+    function openDetailModal(title, contentHTML) {
+      const modalTitle = document.getElementById("detailModalLabel");
+      const modalBody = document.getElementById("modalBodyContent");
+      modalTitle.textContent = title;
+      modalBody.innerHTML = contentHTML;
+      
+      const detailModalElem = document.getElementById("detailModal");
+      const detailModal = new bootstrap.Modal(detailModalElem, {
+        backdrop: 'static' // per prevenire chiusure accidentali se necessario
+      });
+      detailModal.show();
+    }
+    
+    /* ==========================================================================
+       Listener per pulire il contenuto della modale alla chiusura e rimuovere residui
+       che potrebbero bloccare lo scorrimento della pagina.
+    ========================================================================== */
+    const detailModalElem = document.getElementById("detailModal");
+    detailModalElem.addEventListener("hidden.bs.modal", function () {
+      document.getElementById("modalBodyContent").innerHTML = "";
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+      const backdrops = document.querySelectorAll(".modal-backdrop");
+      backdrops.forEach((elem) => {
+        elem.parentNode.removeChild(elem);
+      });
+      const modalInstance = bootstrap.Modal.getInstance(detailModalElem);
+      if (modalInstance) {
+        modalInstance.dispose();
+      }
+    });
+    
+    /* ===========================================================
+       Funzione per l'escape dei caratteri HTML (prevenzione XSS)
+    =========================================================== */
+    function escapeHtml(text) {
+      if (typeof text !== "string") return text;
+      const map = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;"
+      };
+      return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+    
+  </script>
+</body>
+</html>
