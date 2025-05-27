@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Open Library Search App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Bootstrap 5 CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  
+  <style>
+    /* Temi Day / Night */
+    body.day {
+      background-color: #f8f9fa;
+      color: #212529;
+    }
+    body.night {
+      background-color: #212529;
+      color: #f8f9fa;
+    }
+    /* Header e Footer */
+    header, footer {
+      background-color: #333;
+      color: #fff;
+      padding: 15px;
+      text-align: center;
+    }
+    /* Contenitore principale */
+    .container-main {
+      max-width: 960px;
+      margin: 20px auto;
+      padding: 15px;
+    }
+    /* Form di ricerca */
+    #searchForm {
+      margin-bottom: 30px;
+    }
+    /* Card dei risultati */
+    .result-item {
+      margin-bottom: 20px;
+      padding: 20px;
+      background-color: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 0.25rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .result-item h3 {
+      margin-bottom: 10px;
+    }
+    .result-item p {
+      font-size: 0.95rem;
+    }
+    .result-item img {
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 15px;
+      border-radius: 0.25rem;
+    }
+    /* Spinner */
+    .spinner {
+      margin: 50px auto;
+      display: block;
+    }
+    /* Messaggio di errore */
+    #errorMessage {
+      color: #d9534f;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    /* Modal: garantiamo uno scroll interno se il contenuto è lungo */
+    .modal-body {
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    /* Footer */
+    footer {
+      margin-top: 40px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body class="day">
+  <!-- Header -->
+  <header>
+    <div class="d-flex justify-content-between align-items-center">
+      <h1 class="m-0">Open Library Search App</h1>
+      <!-- Toggle per tema Day/Night -->
+      <div>
+        <label for="themeToggle" class="form-check-label me-2">Tema</label>
+        <input type="checkbox" id="themeToggle" class="form-check-input">
+        <span id="themeText">Day</span>
+      </div>
+    </div>
+  </header>
+  
+  <!-- Contenitore principale -->
+  <div class="container-main">
+    <!-- Form di ricerca -->
+    <form id="searchForm" class="mb-4">
+      <div class="row g-3 align-items-center">
+        <!-- Campo per il termine di ricerca -->
+        <div class="col-md-6">
+          <input type="text" id="searchQuery" class="form-control" placeholder="Inserisci termine di ricerca (es. \"Harry Potter\", \"Tolkien\", ecc.)" required>
+        </div>
+        <!-- Checkbox per mostrare copertina -->
+        <div class="col-md-2 d-flex align-items-center">
+          <div class="form-check">
+            <input type="checkbox" id="showCovers" class="form-check-input" checked>
+            <label for="showCovers" class="form-check-label">Mostra Copertina</label>
+          </div>
+        </div>
+        <!-- Pulsante di ricerca -->
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary w-100">Cerca</button>
+        </div>
+      </div>
+    </form>
+    
+    <!-- Messaggio di errore -->
+    <p id="errorMessage"></p>
+    
+    <!-- Risultati della ricerca -->
+    <div id="resultContainer"></div>
+  </div>
+  
+  <!-- Footer -->
+  <footer>
+    <p>Realizzato da Bocaletto Luca © <?php echo date("Y"); ?></p>
+  </footer>
+  
+  <!-- Modale per visualizzare i dettagli completi -->
+  <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="detailModalLabel">Dettaglio Opera</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+        </div>
+        <div class="modal-body" id="modalBodyContent">
+          <!-- Qui verrà caricato il contenuto completo dell'opera -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Bootstrap Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    /* Gestione del tema Day/Night */
+    const themeToggle = document.getElementById("themeToggle");
+    const themeText = document.getElementById("themeText");
+    themeToggle.addEventListener("change", () => {
+      if (themeToggle.checked) {
+        document.body.classList.remove("day");
+        document.body.classList.add("night");
+        themeText.textContent = "Night";
+      } else {
+        document.body.classList.remove("night");
+        document.body.classList.add("day");
+        themeText.textContent = "Day";
+      }
+    });
+    
+    /* Gestione del form di ricerca e variabili globali */
+    const searchForm = document.getElementById("searchForm");
+    const resultContainer = document.getElementById("resultContainer");
+    const errorMessage = document.getElementById("errorMessage");
+    
+    searchForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      resultContainer.innerHTML = "";
+      errorMessage.textContent = "";
+      const query = document.getElementById("searchQuery").value.trim();
+      if(query === "") return;
+      performSearch(query);
+    });
+    
+    /* Funzione per eseguire la ricerca sull'API di Open Library */
+    async function performSearch(keyword) {
+      resultContainer.innerHTML = '<div class="text-center"><div class="spinner-border spinner" role="status"><span class="visually-hidden">Caricamento...</span></div></div>';
+      const searchUrl = `https://openlibrary.org/search.json?q=${encodeURIComponent(keyword)}&limit=20`;
+      
+      try {
+        const response = await fetch(searchUrl);
+        if(!response.ok) {
+          throw new Error("Errore nella risposta di rete");
+        }
+        const data = await response.json();
+        displaySearchResults(data.docs);
+      } catch (error) {
+        console.error(error);
+        resultContainer.innerHTML = "";
+        errorMessage.textContent = "Errore: " + error.message;
+      }
+    }
+    
+    /* Funzione per visualizzare i risultati della ricerca */
+    function displaySearchResults(docs) {
+      resultContainer.innerHTML = "";
+      if(!docs || docs.length === 0) {
+        resultContainer.innerHTML = "<p class='text-center'>Nessun risultato trovato.</p>";
+        return;
+      }
+      
+      docs.forEach(doc => {
+        // I campi utili: title, author_name (array), first_publish_year, cover_i, key (es. "/works/OL82563W")
+        const title = doc.title || "Titolo non disponibile";
+        const authors = doc.author_name ? doc.author_name.join(", ") : "Autore non disponibile";
+        const year = doc.first_publish_year || "Anno non disponibile";
+        const coverId = doc.cover_i;
+        const coverUrl = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : "";
+        const workKey = doc.key; // es. "/works/OL82563W"
+        
+        let cardHTML = `<div class="result-item"> 
+                          <h3>${escapeHtml(title)}</h3>
+                          <p><strong>Autore/i:</strong> ${escapeHtml(authors)}</p>
+                          <p><strong>Anni iniziale:</strong> ${year}</p>`;
+        if(coverUrl !== "") {
+          cardHTML += `<img src="${coverUrl}" alt="${escapeHtml(title)}" class="img-fluid mb-3">`;
+        }
+        cardHTML += `<button class="btn btn-sm btn-secondary" onclick="loadFullDetails('${encodeURIComponent(workKey)}', '${escapeHtml(title)}')">Leggi di più</button>
+                      </div>`;
+        resultContainer.innerHTML += cardHTML;
+      });
+    }
+    
+    /* Funzione per caricare i dettagli completi di un'opera tramite Open Library API */
+    async function loadFullDetails(workKeyEncoded, title) {
+      const workKey = decodeURIComponent(workKeyEncoded);  // Esempio: "/works/OL82563W"
+      // Mostriamo subito la modale con un messaggio
+      openDetailModal(title, `<p class="text-center">Caricamento dettagli...</p>`);
+      
+      const detailUrl = `https://openlibrary.org${workKey}.json`;
+      try {
+        const response = await fetch(detailUrl);
+        if(!response.ok) {
+          throw new Error("Errore nel recupero dei dettagli");
+        }
+        const data = await response.json();
+        displayDetailData(data, title);
+      } catch (error) {
+        console.error(error);
+        openDetailModal(title, `<p class="text-center text-danger">Errore: ${error.message}</p>`);
+      }
+    }
+    
+    /* Funzione per visualizzare i dettagli dell'opera nella modale */
+    function displayDetailData(data, fallbackTitle) {
+      // Possibili campi: description, subjects, excerpts, etc.
+      let description = "";
+      if(data.description) {
+        if(typeof data.description === "object" && data.description.value) {
+          description = data.description.value;
+        } else if(typeof data.description === "string") {
+          description = data.description;
+        }
+      } else {
+        description = "Nessuna descrizione disponibile.";
+      }
+
+      let subjects = "";
+      if(data.subjects && Array.isArray(data.subjects)) {
+        subjects = data.subjects.join(", ");
+      } else {
+        subjects = "Soggetti non disponibili.";
+      }
+      
+      let detailHTML = `<h2>${escapeHtml(data.title) || escapeHtml(fallbackTitle)}</h2>
+                        <p><strong>Descrizione:</strong><br>${escapeHtml(description)}</p>
+                        <p><strong>Soggetti:</strong> ${escapeHtml(subjects)}</p>`;
+      
+      openDetailModal(data.title || fallbackTitle, detailHTML);
+    }
+    
+    /* Funzione per aprire la modale e mostrare il contenuto passato */
+    function openDetailModal(title, contentHTML) {
+      const modalTitle = document.getElementById("detailModalLabel");
+      const modalBody = document.getElementById("modalBodyContent");
+      modalTitle.textContent = title;
+      modalBody.innerHTML = contentHTML;
+      
+      const detailModalElem = document.getElementById("detailModal");
+      const detailModal = new bootstrap.Modal(detailModalElem);
+      detailModal.show();
+    }
+    
+    /* Listener per pulire il contenuto della modale al momento della chiusura */
+    const detailModalElem = document.getElementById("detailModal");
+    detailModalElem.addEventListener("hidden.bs.modal", function () {
+      document.getElementById("modalBodyContent").innerHTML = "";
+      document.body.classList.remove("modal-open");
+      let backdrops = document.getElementsByClassName("modal-backdrop");
+      while (backdrops[0]) {
+          backdrops[0].parentNode.removeChild(backdrops[0]);
+      }
+      const modalInstance = bootstrap.Modal.getInstance(detailModalElem);
+      if (modalInstance) {
+        modalInstance.dispose();
+      }
+    });
+    
+    /* Funzione per l'escape dei caratteri HTML per prevenire XSS */
+    function escapeHtml(text) {
+      if (typeof text !== "string") return text;
+      const map = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;"
+      };
+      return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+  </script>
+</body>
+</html>
