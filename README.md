@@ -6,7 +6,7 @@
 [![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)  
 [![Bootstrap](https://img.shields.io/badge/Bootstrap-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
 
-Book Explorer is an interactive web application that allows you to dive into the world of literature using data from the [Open Library API](https://openlibrary.org/developers/api). This project dynamically fetches book data and presents it in a modern, responsive design developed with HTML, CSS, JavaScript, and Bootstrap 5.
+OpenLibrary Database - Book Explorer is an interactive web application that allows you to dive into the world of literature using data from the [Open Library API](https://openlibrary.org/developers/api). This project dynamically fetches book data and presents it in a modern, responsive design developed with HTML, CSS, JavaScript, and Bootstrap 5.
 
 ## Features
 
